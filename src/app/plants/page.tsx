@@ -122,6 +122,16 @@ function PlantsContent() {
       {/* Filters */}
       <div className="mb-6 flex flex-col sm:flex-row gap-4">
         <div className="flex-1">
+          <label className="block text-sm font-medium mb-2">Search by name</label>
+          <input
+            type="text"
+            value={q}
+            onChange={(e) => updateParams({ q: e.target.value || null })}
+            placeholder="Search for plants..."
+            className="w-full px-3 py-2 border border-[hsl(var(--input))] bg-[hsl(var(--background))] text-[hsl(var(--foreground))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))] placeholder:text-[hsl(var(--muted-foreground))]"
+          />
+        </div>
+        <div className="flex-1">
           <label className="block text-sm font-medium mb-2">Category</label>
           <select
             value={cat}

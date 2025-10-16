@@ -34,12 +34,23 @@ type Category = {
   name: string;
 };
 
-export default function PlantDetailPage({ params }: { params: { id: string } }) {
+export default function PlantDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const [plant, setPlant] = useState<Plant | null>(null);
   const [category, setCategory] = useState<Category | null>(null);
   const [loading, setLoading] = useState(true);
+  const [plantId, setPlantId] = useState<string | null>(null);
 
   useEffect(() => {
+    async function getParams() {
+      const resolvedParams = await params;
+      setPlantId(resolvedParams.id);
+    }
+    getParams();
+  }, [params]);
+
+  useEffect(() => {
+    if (!plantId) return;
+    
     async function load() {
       setLoading(true);
       
@@ -47,7 +58,7 @@ export default function PlantDetailPage({ params }: { params: { id: string } }) 
       const { data, error } = await supabase
         .from("plants")
         .select("*")
-        .eq("id", params.id)
+        .eq("id", plantId)
         .single();
         
       if (error) {
@@ -70,7 +81,7 @@ export default function PlantDetailPage({ params }: { params: { id: string } }) 
       setLoading(false);
     }
     load();
-  }, [params.id]);
+  }, [plantId]);
 
   // Get stock status with color
   const getStockStatus = () => {
