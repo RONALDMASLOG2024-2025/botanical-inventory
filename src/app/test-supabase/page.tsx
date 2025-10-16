@@ -29,7 +29,7 @@ export default function TestSupabasePage() {
 
       // Test database
       try {
-        const { data, error } = await supabase.from('plants').select('count');
+        const { error } = await supabase.from('plants').select('count');
         tests.databaseTest = error ? `Error: ${error.message}` : "✅ Working";
       } catch (err: any) {
         tests.databaseTest = `❌ Exception: ${err.message}`;

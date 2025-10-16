@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef } from "react";
+import Image from "next/image";
 import { validateImageFile, formatFileSize, resizeImage, uploadPlantImage } from "../lib/uploadImage";
 
 type ImageUploadProps = {
@@ -137,9 +138,11 @@ export default function ImageUpload({
       {/* Preview */}
       {preview && (
         <div className="relative rounded-lg overflow-hidden border-2 border-slate-200 bg-slate-50">
-          <img
+          <Image
             src={preview}
             alt="Preview"
+            width={800}
+            height={256}
             className="w-full h-64 object-cover"
           />
           {!file && !uploading && (

@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function PlantCard({
   id,
@@ -18,7 +19,13 @@ export default function PlantCard({
     <article className="rounded-lg border border-[hsl(var(--border))] overflow-hidden shadow-sm bg-[hsl(var(--card))] hover:shadow-md transition-shadow">
       <div className="h-48 w-full bg-[hsl(var(--muted))] flex items-center justify-center overflow-hidden">
         {imageUrl ? (
-          <img src={imageUrl} alt={name} className="w-full h-full object-cover" />
+          <Image 
+            src={imageUrl} 
+            alt={name} 
+            width={400} 
+            height={192} 
+            className="w-full h-full object-cover" 
+          />
         ) : (
           <div className="text-[hsl(var(--muted-foreground))]">No image</div>
         )}

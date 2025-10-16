@@ -4,7 +4,7 @@ type CharacterCounterProps = {
   fieldName?: string;
 };
 
-export default function CharacterCounter({ current, max, fieldName = "text" }: CharacterCounterProps) {
+export default function CharacterCounter({ current, max }: CharacterCounterProps) {
   const percentage = (current / max) * 100;
   const remaining = max - current;
   const isNearLimit = percentage >= 80;
