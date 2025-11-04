@@ -34,7 +34,11 @@ export default function PlantCard({
       <div className="p-4">
         <h3 className="font-semibold text-lg text-[hsl(var(--card-foreground))]">{name}</h3>
         {scientificName && <p className="italic text-sm text-[hsl(var(--muted-foreground))]">{scientificName}</p>}
-        {description && <p className="mt-2 text-sm text-[hsl(var(--foreground))] line-clamp-2">{description}</p>}
+        {description && (
+          <p className="mt-2 text-sm text-[hsl(var(--foreground))] line-clamp-2">
+            {description.replace(/<[^>]*>/g, '')}
+          </p>
+        )}
       </div>
     </article>
   );
