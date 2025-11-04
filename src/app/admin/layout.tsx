@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Moon, Sun, LogOut, LayoutDashboard, Home, Plus, Leaf } from "lucide-react";
+import { Moon, Sun, LogOut, LayoutDashboard, Home, Leaf } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "../../lib/supabaseClient";
 import { useRouter, usePathname } from "next/navigation";
@@ -111,17 +111,7 @@ export default function AdminLayout({
                 <LayoutDashboard className="h-4 w-4" />
                 Dashboard
               </Link>
-              <Link
-                href="/admin/create"
-                className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-full transition-all ${
-                  isActive("/admin/create")
-                    ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/30"
-                    : "text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] hover:shadow-md"
-                }`}
-              >
-                <Plus className="h-4 w-4" />
-                New Plant
-              </Link>
+              
               <Link
                 href="/"
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-full transition-all text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] hover:shadow-md"

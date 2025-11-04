@@ -15,6 +15,10 @@ type Plant = {
   image_url?: string | null;
   category_id?: string;
   is_featured?: boolean;
+  // Botanical classification and usage
+  family?: string;
+  plant_parts_used?: string;
+  uses?: string;
   // Inventory fields
   sku?: string;
   quantity?: number;
@@ -36,7 +40,7 @@ type Category = {
 
 export default function PlantDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const [plant, setPlant] = useState<Plant | null>(null);
-  const [category, setCategory] = useState<Category | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]); // Changed to array
   const [loading, setLoading] = useState(true);
   const [plantId, setPlantId] = useState<string | null>(null);
 
@@ -68,35 +72,39 @@ export default function PlantDetailPage({ params }: { params: Promise<{ id: stri
         const plantData = data as Plant;
         setPlant(plantData);
         
-        // Load category if exists
-        if (plantData.category_id) {
+        // Load categories from junction table
+        const { data: plantCategories } = await supabase
+          .from("plant_categories")
+          .select(`
+            category_id,
+            categories (
+              id,
+              name
+            )
+          `)
+          .eq("plant_id", plantId);
+        
+        if (plantCategories && plantCategories.length > 0) {
+          const cats = plantCategories
+            .map(pc => (pc as any).categories)
+            .filter(Boolean);
+          setCategories(cats);
+        } else if (plantData.category_id) {
+          // Fallback to old category_id if no junction table entries
           const { data: catData } = await supabase
             .from("categories")
             .select("*")
             .eq("id", plantData.category_id)
             .single();
-          setCategory(catData as Category);
+          if (catData) {
+            setCategories([catData as Category]);
+          }
         }
       }
       setLoading(false);
     }
     load();
   }, [plantId]);
-
-  // Get stock status with color
-  const getStockStatus = () => {
-    if (!plant?.quantity && plant?.quantity !== 0) return null;
-    
-    if (plant.quantity === 0) {
-      return { label: "Out of Stock", color: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400", icon: "🔴" };
-    } else if (plant.minimum_stock && plant.quantity <= plant.minimum_stock) {
-      return { label: "Low Stock", color: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400", icon: "⚠️" };
-    } else {
-      return { label: "In Stock", color: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400", icon: "✅" };
-    }
-  };
-
-  const stockStatus = getStockStatus();
 
   if (loading) return <div className="text-center py-12 text-[hsl(var(--muted-foreground))]">Loading plant details…</div>;
   if (!plant) return <div className="text-center py-12 text-[hsl(var(--muted-foreground))]">Plant not found.</div>;
@@ -143,23 +151,35 @@ export default function PlantDetailPage({ params }: { params: Promise<{ id: stri
                 )}
               </div>
               
-              {/* Quick Info Cards */}
-              {stockStatus && (
-                <div className={`mt-4 p-4 rounded-lg ${stockStatus.color} flex items-center gap-2`}>
-                  <Package className="h-5 w-5" />
+              {/* Quantity Info Card */}
+              {plant.quantity !== undefined && plant.quantity !== null && (
+                <div className="mt-4 p-4 rounded-lg bg-[hsl(var(--card))] border border-[hsl(var(--border))] flex items-center gap-3">
+                  <Package className="h-5 w-5 text-[hsl(var(--muted-foreground))]" />
                   <div>
-                    <div className="font-semibold">{stockStatus.icon} {stockStatus.label}</div>
-                    {plant.quantity !== undefined && (
-                      <div className="text-sm opacity-90">{plant.quantity} available</div>
-                    )}
+                    <div className="text-sm text-[hsl(var(--muted-foreground))]">Available Quantity</div>
+                    <div className="text-2xl font-bold text-[hsl(var(--foreground))]">{plant.quantity}</div>
                   </div>
                 </div>
               )}
               
-              {category && (
-                <div className="mt-3 p-3 rounded-lg bg-[hsl(var(--muted))] border border-[hsl(var(--border))] flex items-center gap-2">
-                  <Tag className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
-                  <span className="text-sm font-medium">{category.name}</span>
+              {categories.length > 0 && (
+                <div className="mt-3 p-3 rounded-lg bg-[hsl(var(--muted))] border border-[hsl(var(--border))]">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Tag className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
+                    <span className="text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase">
+                      {categories.length === 1 ? 'Category' : 'Categories'}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {categories.map((cat) => (
+                      <span 
+                        key={cat.id}
+                        className="inline-flex px-2.5 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-sm font-medium rounded-full"
+                      >
+                        {cat.name}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -184,7 +204,43 @@ export default function PlantDetailPage({ params }: { params: Promise<{ id: stri
                   {plant.scientific_name}
                 </p>
               )}
+              {plant.family && (
+                <p className="text-sm text-[hsl(var(--muted-foreground))] mt-2 flex items-center gap-2">
+                  <Tag className="h-4 w-4" />
+                  Family: <span className="font-semibold text-[hsl(var(--foreground))]">{plant.family}</span>
+                </p>
+              )}
             </div>
+
+            {/* Plant Parts Used & Uses */}
+            {(plant.plant_parts_used || plant.uses) && (
+              <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-xl p-6 shadow-sm">
+                <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-[hsl(var(--foreground))]">
+                  <Package className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  Botanical Uses
+                </h2>
+                <div className="space-y-4">
+                  {plant.plant_parts_used && (
+                    <div>
+                      <div className="text-sm font-medium text-[hsl(var(--muted-foreground))] mb-2">Plant Part/s Used</div>
+                      <div 
+                        className="text-[hsl(var(--foreground))] leading-relaxed prose prose-sm dark:prose-invert max-w-none"
+                        dangerouslySetInnerHTML={{ __html: plant.plant_parts_used }}
+                      />
+                    </div>
+                  )}
+                  {plant.uses && (
+                    <div>
+                      <div className="text-sm font-medium text-[hsl(var(--muted-foreground))] mb-2">Uses</div>
+                      <div 
+                        className="text-[hsl(var(--foreground))] leading-relaxed prose prose-sm dark:prose-invert max-w-none"
+                        dangerouslySetInnerHTML={{ __html: plant.uses }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Description */}
             {plant.description && (
@@ -193,7 +249,10 @@ export default function PlantDetailPage({ params }: { params: Promise<{ id: stri
                   <Info className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                   Overview
                 </h2>
-                <p className="text-[hsl(var(--foreground))] leading-relaxed">{plant.description}</p>
+                <div 
+                  className="text-[hsl(var(--foreground))] leading-relaxed prose prose-sm dark:prose-invert max-w-none"
+                  dangerouslySetInnerHTML={{ __html: plant.description }}
+                />
               </div>
             )}
 
@@ -204,7 +263,10 @@ export default function PlantDetailPage({ params }: { params: Promise<{ id: stri
                   <HomeIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
                   Natural Habitat
                 </h2>
-                <p className="text-[hsl(var(--foreground))] leading-relaxed">{plant.habitat}</p>
+                <div 
+                  className="text-[hsl(var(--foreground))] leading-relaxed prose prose-sm dark:prose-invert max-w-none"
+                  dangerouslySetInnerHTML={{ __html: plant.habitat }}
+                />
               </div>
             )}
 
@@ -215,7 +277,10 @@ export default function PlantDetailPage({ params }: { params: Promise<{ id: stri
                   <Heart className="h-5 w-5 text-rose-600 dark:text-rose-400" />
                   Care Instructions
                 </h2>
-                <p className="text-[hsl(var(--foreground))] leading-relaxed whitespace-pre-line">{plant.care_instructions}</p>
+                <div 
+                  className="text-[hsl(var(--foreground))] leading-relaxed prose prose-sm dark:prose-invert max-w-none"
+                  dangerouslySetInnerHTML={{ __html: plant.care_instructions }}
+                />
               </div>
             )}
 
@@ -276,7 +341,10 @@ export default function PlantDetailPage({ params }: { params: Promise<{ id: stri
                 {plant.inventory_notes && (
                   <div className="mt-4 pt-4 border-t border-[hsl(var(--border))]">
                     <div className="text-sm text-[hsl(var(--muted-foreground))] mb-2">Inventory Notes</div>
-                    <p className="text-sm text-[hsl(var(--foreground))] leading-relaxed">{plant.inventory_notes}</p>
+                    <div 
+                      className="text-sm text-[hsl(var(--foreground))] leading-relaxed prose prose-sm dark:prose-invert max-w-none"
+                      dangerouslySetInnerHTML={{ __html: plant.inventory_notes }}
+                    />
                   </div>
                 )}
               </div>

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { supabase } from "../../../lib/supabaseClient";
 import { isAdmin } from "../../../lib/auth";
 import Button from "../../../components/ui/button";
@@ -10,7 +11,8 @@ import { Label } from "../../../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Badge } from "../../../components/ui/badge";
-import { Search, Plus, Trash2, Edit, Package, Star, RefreshCw, Filter, TrendingUp } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
+import { Search, Plus, Trash2, Edit, Package, Star, RefreshCw, Filter, TrendingUp, Leaf, Eye, AlertCircle } from "lucide-react";
 
 type Category = {
   id: string;
@@ -27,7 +29,9 @@ type Plant = {
   quantity?: number;
   status?: string;
   location?: string;
+  section?: string;
   sku?: string;
+  image_url?: string | null;
 };
 
 export default function AdminDashboard() {
@@ -366,112 +370,219 @@ export default function AdminDashboard() {
       </Card>
 
       {/* Plants Table Card */}
-      <Card className="bg-[hsl(var(--card))] border-[hsl(var(--border))]">
-        <CardHeader className="pb-4">
+      <Card className="bg-[hsl(var(--card))] border-[hsl(var(--border))] shadow-sm">
+        <CardHeader className="border-b border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-base font-semibold">Plants</CardTitle>
-              <CardDescription className="text-sm mt-1">
-                Showing {filteredPlants.length} of {totals.plants} plants
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <Package className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                Plant Inventory
+              </CardTitle>
+              <CardDescription className="text-sm mt-1.5">
+                Showing <span className="font-semibold text-[hsl(var(--foreground))]">{filteredPlants.length}</span> of <span className="font-semibold text-[hsl(var(--foreground))]">{totals.plants}</span> plants
               </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={loadPlants}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Refresh</span>
+              </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="px-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-y border-[hsl(var(--border))]">
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Scientific</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">SKU</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Quantity</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Location</th>
-                  <th className="px-6 py-3 text-right text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[hsl(var(--border))]">
-                {loading ? (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <div className="w-5 h-5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
-                        <span className="text-sm text-slate-600 dark:text-slate-400">Loading plants...</span>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="text-center">
+                <div className="w-12 h-12 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-sm text-[hsl(var(--muted-foreground))]">Loading plants...</p>
+              </div>
+            </div>
+          ) : filteredPlants.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 px-4">
+              <div className="w-16 h-16 rounded-full bg-[hsl(var(--muted))] flex items-center justify-center mb-4">
+                <AlertCircle className="w-8 h-8 text-[hsl(var(--muted-foreground))]" />
+              </div>
+              <p className="text-base font-medium text-[hsl(var(--foreground))] mb-1">No plants found</p>
+              <p className="text-sm text-[hsl(var(--muted-foreground))] text-center max-w-sm">
+                {searchQuery || categoryFilter !== "all" || statusFilter !== "all" 
+                  ? "No plants match your current filters. Try adjusting your search criteria."
+                  : "Get started by creating your first plant entry."}
+              </p>
+              {!searchQuery && categoryFilter === "all" && statusFilter === "all" && (
+                <Link href="/admin/create" className="mt-4">
+                  <Button className="gap-2">
+                    <Plus className="w-4 h-4" />
+                    Create First Plant
+                  </Button>
+                </Link>
+              )}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="w-[300px]">
+                      <div className="flex items-center gap-2">
+                        <Leaf className="w-4 h-4" />
+                        Plant Information
                       </div>
-                    </td>
-                  </tr>
-                ) : filteredPlants.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center">
-                      <p className="text-sm text-slate-600 dark:text-slate-400">
-                        {searchQuery || categoryFilter !== "all" || statusFilter !== "all" 
-                          ? "No plants match your filters. Try adjusting your search."
-                          : "No plants yet. Create one to get started!"}
-                      </p>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredPlants.map((p) => (
-                    <tr key={p.id} className="hover:bg-[hsl(var(--muted))]/50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-[hsl(var(--foreground))]">{p.common_name}</span>
-                          {p.is_featured && <Star className="w-4 h-4 text-amber-500 fill-amber-500" />}
+                    </TableHead>
+                    <TableHead className="hidden md:table-cell">
+                      <div className="flex items-center gap-2">
+                        SKU
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <Package className="w-4 h-4" />
+                        Stock
+                      </div>
+                    </TableHead>
+                    <TableHead className="hidden lg:table-cell">Status</TableHead>
+                    <TableHead className="hidden xl:table-cell">Location</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredPlants.map((p) => (
+                    <TableRow key={p.id}>
+                      {/* Plant Information Cell */}
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          {/* Thumbnail */}
+                          <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950 dark:to-teal-950 flex-shrink-0 border-2 border-[hsl(var(--border))] shadow-sm">
+                            {p.image_url ? (
+                              <Image
+                                src={p.image_url}
+                                alt={p.common_name}
+                                fill
+                                className="object-cover"
+                                sizes="56px"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <Leaf className="w-7 h-7 text-emerald-400/40 dark:text-emerald-600/40" />
+                              </div>
+                            )}
+                          </div>
+                          {/* Plant Details */}
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-[hsl(var(--foreground))] truncate">
+                                {p.common_name}
+                              </span>
+                              {p.is_featured && (
+                                <div className="flex-shrink-0">
+                                  <Badge className="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-0 px-1.5 py-0 text-xs">
+                                    <Star className="w-3 h-3 fill-current" />
+                                  </Badge>
+                                </div>
+                              )}
+                            </div>
+                            {p.scientific_name && (
+                              <span className="text-xs italic text-[hsl(var(--muted-foreground))] truncate">
+                                {p.scientific_name}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-[hsl(var(--muted-foreground))] italic">
-                        {p.scientific_name || "—"}
-                      </td>
-                      <td className="px-6 py-4 text-sm font-mono text-[hsl(var(--muted-foreground))]">
-                        {p.sku || "—"}
-                      </td>
-                      <td className="px-6 py-4">
-                        {p.quantity !== undefined ? (
-                          <span className={`text-sm font-semibold ${
+                      </TableCell>
+
+                      {/* SKU Cell */}
+                      <TableCell className="hidden md:table-cell">
+                        <code className="text-xs font-mono bg-[hsl(var(--muted))] px-2 py-1 rounded border border-[hsl(var(--border))]">
+                          {p.sku || "—"}
+                        </code>
+                      </TableCell>
+
+                      {/* Quantity Cell */}
+                      <TableCell className="text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <span className={`text-lg font-bold tabular-nums ${
                             p.quantity === 0 ? 'text-red-600 dark:text-red-400' : 
-                            p.quantity <= 5 ? 'text-orange-600 dark:text-orange-400' : 
+                            p.quantity !== undefined && p.quantity <= 5 ? 'text-orange-600 dark:text-orange-400' : 
                             'text-emerald-600 dark:text-emerald-400'
                           }`}>
-                            {p.quantity}
+                            {p.quantity !== undefined ? p.quantity : "—"}
                           </span>
-                        ) : "—"}
-                      </td>
-                      <td className="px-6 py-4">
+                          <span className="text-xs text-[hsl(var(--muted-foreground))]">
+                            units
+                          </span>
+                        </div>
+                      </TableCell>
+
+                      {/* Status Cell */}
+                      <TableCell className="hidden lg:table-cell">
                         {getStatusBadge(p.status, p.quantity)}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-[hsl(var(--muted-foreground))]">
-                        {p.location || "—"}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-end gap-2">
+                      </TableCell>
+
+                      {/* Location Cell */}
+                      <TableCell className="hidden xl:table-cell">
+                        <div className="flex flex-col gap-0.5">
+                          {p.location ? (
+                            <>
+                              <span className="text-sm font-medium text-[hsl(var(--foreground))]">
+                                {p.location}
+                              </span>
+                              {p.section && (
+                                <span className="text-xs text-[hsl(var(--muted-foreground))]">
+                                  {p.section}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-sm text-[hsl(var(--muted-foreground))]">—</span>
+                          )}
+                        </div>
+                      </TableCell>
+
+                      {/* Actions Cell */}
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Link href={`/plants/${p.id}`}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              title="View Details"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          </Link>
                           <Link href={`/admin/plants/${p.id}/edit`}>
                             <Button
-                              variant="outline"
+                              variant="ghost"
                               size="sm"
-                              className="gap-2"
+                              className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
+                              title="Edit Plant"
                             >
-                              <Edit className="w-3 h-3" />
-                              Edit
+                              <Edit className="w-4 h-4" />
                             </Button>
                           </Link>
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
                             onClick={() => deletePlant(p.id, p.common_name)}
-                            className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                            title="Delete Plant"
                           >
-                            <Trash2 className="w-3 h-3" />
-                            Delete
+                            <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

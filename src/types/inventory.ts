@@ -25,11 +25,19 @@ export interface Plant {
   description?: string | null;
   habitat?: string | null;
   care_instructions?: string | null;
-  category_id?: string | null;
+  category_id?: string | null; // DEPRECATED: Use categories array instead
   image_url?: string | null;
   is_featured: boolean;
   created_at: string;
   updated_at?: string | null;
+  
+  // Botanical classification and usage
+  family?: string | null; // Botanical family (e.g., MYRTACEAE, ROSACEAE)
+  plant_parts_used?: string | null; // Parts used (e.g., ROOTS, BARK, FRUIT, FLOWER, LEAVES)
+  uses?: string | null; // Medicinal, culinary, or practical uses
+  
+  // Multiple categories support
+  categories?: Category[] | null; // Array of categories this plant belongs to
   
   // Performance optimization fields
   version?: number;
@@ -48,6 +56,13 @@ export interface Plant {
   date_acquired?: string | null; // ISO date string
   last_restocked?: string | null; // ISO timestamp
   inventory_notes?: string | null;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  description?: string | null;
+  created_at?: string;
 }
 
 export interface InventoryHistory {
@@ -106,9 +121,15 @@ export interface PlantFormData {
   description?: string;
   habitat?: string;
   care_instructions?: string;
-  category_id?: string;
+  category_id?: string; // DEPRECATED
+  category_ids?: string[]; // Array of category IDs
   image_url?: string | null;
   is_featured: boolean;
+  
+  // Botanical classification and usage
+  family?: string;
+  plant_parts_used?: string;
+  uses?: string;
   
   // Inventory fields
   sku?: string;

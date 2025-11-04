@@ -1,9 +1,38 @@
+"use client";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
+import { supabase } from "../lib/supabaseClient";
 import Button from "../components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
-import { Leaf, Search, Star, MapPin, BookOpen, Shield, Sparkles, TrendingUp } from "lucide-react";
+import { Leaf, Search, Star, MapPin, BookOpen, Shield, Sparkles, TrendingUp, Heart } from "lucide-react";
+
+type FeaturedPlant = {
+  id: string;
+  common_name: string;
+  scientific_name?: string;
+  image_url?: string | null;
+  description?: string;
+};
 
 export default function Home() {
+  const [featuredPlants, setFeaturedPlants] = useState<FeaturedPlant[]>([]);
+
+  useEffect(() => {
+    async function loadFeaturedPlants() {
+      const { data, error } = await supabase
+        .from("plants")
+        .select("id, common_name, scientific_name, image_url, description")
+        .eq("is_featured", true)
+        .limit(3);
+      
+      if (!error && data) {
+        setFeaturedPlants(data as FeaturedPlant[]);
+      }
+    }
+    loadFeaturedPlants();
+  }, []);
+
   return (
     <main className="flex min-h-screen flex-col">
       {/* Hero Section */}
@@ -68,12 +97,7 @@ export default function Home() {
                 Explore Collection
               </Button>
             </Link>
-            <Link href="/admin">
-              <Button size="lg" variant="outline" className="gap-2">
-                <Shield className="h-4 w-4" />
-                Admin Access
-              </Button>
-            </Link>
+
           </div>
 
           {/* Stats */}
@@ -93,6 +117,80 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Featured Plants Section */}
+      {featuredPlants.length > 0 && (
+        <section className="container mx-auto px-4 py-24 sm:px-6 sm:py-32 lg:px-8">
+          <div className="mx-auto flex max-w-[980px] flex-col items-center gap-4 text-center mb-16">
+            <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))] focus:ring-offset-2 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800">
+              <Heart className="mr-1 h-3 w-3 fill-current" />
+              Featured Plants
+            </div>
+            <h2 className="text-3xl font-bold leading-tight tracking-tighter md:text-5xl lg:leading-[1.1]">
+              Discover Our Handpicked Collection
+            </h2>
+            <p className="max-w-[750px] text-lg text-[hsl(var(--muted-foreground))]">
+              Explore our curators&apos; favorite plants, specially selected for their unique characteristics and beauty.
+            </p>
+          </div>
+
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            {featuredPlants.map((plant) => (
+              <Link key={plant.id} href={`/plants/${plant.id}`}>
+                <Card className="group overflow-hidden transition-all hover:shadow-xl hover:-translate-y-1 h-full border-2 border-amber-200 dark:border-amber-800/50 bg-gradient-to-br from-amber-50/50 to-transparent dark:from-amber-900/10 dark:to-transparent">
+                  {/* Image */}
+                  <div className="relative aspect-square overflow-hidden bg-[hsl(var(--muted))]">
+                    {plant.image_url ? (
+                      <Image
+                        src={plant.image_url}
+                        alt={plant.common_name}
+                        fill
+                        className="object-cover transition-transform group-hover:scale-110"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center">
+                        <Leaf className="h-16 w-16 text-[hsl(var(--muted-foreground))]/20" />
+                      </div>
+                    )}
+                    {/* Featured Badge Overlay */}
+                    <div className="absolute top-3 right-3 bg-amber-500 text-white px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 shadow-lg">
+                      <Star className="w-3 h-3 fill-current" />
+                      Featured
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <CardHeader>
+                    <CardTitle className="text-xl group-hover:text-[hsl(var(--primary))] transition-colors">
+                      {plant.common_name}
+                    </CardTitle>
+                    {plant.scientific_name && (
+                      <p className="text-sm italic text-[hsl(var(--muted-foreground))]">
+                        {plant.scientific_name}
+                      </p>
+                    )}
+                    {plant.description && (
+                      <CardDescription className="line-clamp-3 mt-2">
+                        {plant.description.replace(/<[^>]*>/g, '')}
+                      </CardDescription>
+                    )}
+                  </CardHeader>
+                </Card>
+              </Link>
+            ))}
+          </div>
+
+          {/* View All Link */}
+          <div className="mt-12 text-center">
+            <Link href="/plants">
+              <Button variant="outline" size="lg" className="gap-2">
+                View All Plants
+                <Search className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* Features Grid */}
       <section className="container mx-auto px-4 py-24 sm:px-6 sm:py-32 lg:px-8">

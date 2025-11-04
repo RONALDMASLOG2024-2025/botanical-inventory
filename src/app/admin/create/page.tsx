@@ -7,11 +7,10 @@ import Button from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Switch } from "../../../components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
-import { Textarea } from "../../../components/ui/textarea";
 import ImageUpload from "../../../components/ImageUpload";
 import CharacterCounter from "../../../components/CharacterCounter";
+import RichTextEditor from "../../../components/RichTextEditor";
 import { Package, Leaf, MapPin, DollarSign, Calendar, AlertCircle } from "lucide-react";
 
 type Category = {
@@ -30,11 +29,16 @@ export default function AdminCreatePage() {
   const [description, setDescription] = useState("");
   const [habitat, setHabitat] = useState("");
   const [careTips, setCareTips] = useState("");
-  const [categoryId, setCategoryId] = useState<string>("");
+  const [categoryIds, setCategoryIds] = useState<string[]>([]); // Changed to array
   const [categories, setCategories] = useState<Category[]>([]);
   const [isFeatured, setIsFeatured] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageUploading, setImageUploading] = useState(false);
+  
+  // Botanical classification and usage
+  const [family, setFamily] = useState("");
+  const [plantPartsUsed, setPlantPartsUsed] = useState("");
+  const [uses, setUses] = useState("");
   
   // Inventory fields
   const [sku, setSku] = useState("");
@@ -57,13 +61,17 @@ export default function AdminCreatePage() {
     habitat: 2000,
     careTips: 3000,
     inventoryNotes: 1000,
+    plantPartsUsed: 500,
+    uses: 2000,
   };
 
   const hasOverLimitFields = 
     description.length > LIMITS.description ||
     habitat.length > LIMITS.habitat ||
     careTips.length > LIMITS.careTips ||
-    inventoryNotes.length > LIMITS.inventoryNotes;
+    inventoryNotes.length > LIMITS.inventoryNotes ||
+    plantPartsUsed.length > LIMITS.plantPartsUsed ||
+    uses.length > LIMITS.uses;
 
   // Auth check
   useEffect(() => {
@@ -129,6 +137,12 @@ export default function AdminCreatePage() {
     if (inventoryNotes.length > LIMITS.inventoryNotes) {
       validationErrors.push(`Inventory notes are ${inventoryNotes.length - LIMITS.inventoryNotes} characters too long`);
     }
+    if (plantPartsUsed.length > LIMITS.plantPartsUsed) {
+      validationErrors.push(`Plant parts used is ${plantPartsUsed.length - LIMITS.plantPartsUsed} characters too long`);
+    }
+    if (uses.length > LIMITS.uses) {
+      validationErrors.push(`Uses is ${uses.length - LIMITS.uses} characters too long`);
+    }
     
     if (validationErrors.length > 0) {
       setStatus(`❌ ${validationErrors.join('. ')}. Please shorten the text.`);
@@ -145,10 +159,15 @@ export default function AdminCreatePage() {
         description: description || null,
         habitat: habitat || null,
         care_instructions: careTips || null,
-        category_id: categoryId || null,
+        category_id: categoryIds.length > 0 ? categoryIds[0] : null, // Keep for backward compatibility
         is_featured: isFeatured,
         image_url: imageUrl,
         created_at: new Date().toISOString(),
+        
+        // Botanical classification and usage
+        family: family || null,
+        plant_parts_used: plantPartsUsed || null,
+        uses: uses || null,
         
         // Inventory fields
         sku: sku || null,
@@ -163,10 +182,11 @@ export default function AdminCreatePage() {
         inventory_notes: inventoryNotes || null,
       };
 
-      const { error } = await supabase
+      const { data: newPlant, error } = await supabase
         .from("plants")
         .insert([plantData])
-        .select();
+        .select()
+        .single();
 
       if (error) {
         let userMessage = error.message || "Unknown database error";
@@ -180,6 +200,23 @@ export default function AdminCreatePage() {
         throw new Error(userMessage);
       }
 
+      // Insert categories into junction table
+      if (newPlant && categoryIds.length > 0) {
+        const categoryInserts = categoryIds.map(catId => ({
+          plant_id: newPlant.id,
+          category_id: catId
+        }));
+        
+        const { error: catError } = await supabase
+          .from("plant_categories")
+          .insert(categoryInserts);
+        
+        if (catError) {
+          console.error("Error inserting categories:", catError);
+          // Don't fail the whole operation if categories fail
+        }
+      }
+
       setStatus("✓ Plant created successfully!");
       
       // Reset form
@@ -188,9 +225,12 @@ export default function AdminCreatePage() {
       setDescription("");
       setHabitat("");
       setCareTips("");
-      setCategoryId("");
+      setCategoryIds([]); // Reset to empty array
       setIsFeatured(false);
       setImageUrl(null);
+      setFamily("");
+      setPlantPartsUsed("");
+      setUses("");
       setSku("");
       setQuantity(0);
       setMinimumStock(5);
@@ -269,36 +309,70 @@ export default function AdminCreatePage() {
                   placeholder="e.g., Rosa rubiginosa" 
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="family">Family</Label>
+                <Input 
+                  id="family"
+                  value={family} 
+                  onChange={(e) => setFamily(e.target.value)}
+                  placeholder="e.g., MYRTACEAE, ROSACEAE" 
+                  maxLength={200}
+                />
+                <p className="text-xs text-[hsl(var(--muted-foreground))]">Botanical family classification</p>
+              </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
-              <Select value={categoryId} onValueChange={setCategoryId}>
-                <SelectTrigger id="category">
-                  <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="categories">Categories (Multiple Selection)</Label>
+              <div className="border border-[hsl(var(--input))] rounded-lg p-4 space-y-2 max-h-60 overflow-y-auto bg-[hsl(var(--background))]">
+                {categories.length === 0 ? (
+                  <p className="text-sm text-[hsl(var(--muted-foreground))]">No categories available</p>
+                ) : (
+                  categories.map((cat) => (
+                    <div key={cat.id} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={`category-${cat.id}`}
+                        checked={categoryIds.includes(cat.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setCategoryIds([...categoryIds, cat.id]);
+                          } else {
+                            setCategoryIds(categoryIds.filter(id => id !== cat.id));
+                          }
+                        }}
+                        className="w-4 h-4 rounded border-[hsl(var(--input))] text-[hsl(var(--primary))] focus:ring-2 focus:ring-[hsl(var(--ring))]"
+                      />
+                      <label 
+                        htmlFor={`category-${cat.id}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        {cat.name}
+                      </label>
+                    </div>
+                  ))
+                )}
+              </div>
+              {categoryIds.length > 0 && (
+                <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                  {categoryIds.length} {categoryIds.length === 1 ? 'category' : 'categories'} selected
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
-              <Textarea 
-                id="description"
-                value={description} 
-                onChange={(e) => setDescription(e.target.value)} 
-                className={description.length > LIMITS.description ? 'border-[hsl(var(--destructive))]' : ''}
-                rows={4}
+              <RichTextEditor
+                value={description}
+                onChange={setDescription}
                 placeholder="Describe the plant's appearance, characteristics, and uses..."
+                maxLength={LIMITS.description}
+                rows={4}
+                className={description.length > LIMITS.description ? 'border-[hsl(var(--destructive))]' : ''}
               />
               <CharacterCounter 
-                current={description.length} 
+                current={description.replace(/<[^>]*>/g, '').length} 
                 max={LIMITS.description}
                 fieldName="description"
               />
@@ -306,16 +380,16 @@ export default function AdminCreatePage() {
 
             <div className="space-y-2">
               <Label htmlFor="habitat">Habitat</Label>
-              <Textarea 
-                id="habitat"
-                value={habitat} 
-                onChange={(e) => setHabitat(e.target.value)} 
-                className={habitat.length > LIMITS.habitat ? 'border-[hsl(var(--destructive))]' : ''}
-                rows={3}
+              <RichTextEditor
+                value={habitat}
+                onChange={setHabitat}
                 placeholder="Where does this plant naturally grow?"
+                maxLength={LIMITS.habitat}
+                rows={3}
+                className={habitat.length > LIMITS.habitat ? 'border-[hsl(var(--destructive))]' : ''}
               />
               <CharacterCounter 
-                current={habitat.length} 
+                current={habitat.replace(/<[^>]*>/g, '').length} 
                 max={LIMITS.habitat}
                 fieldName="habitat"
               />
@@ -323,18 +397,52 @@ export default function AdminCreatePage() {
 
             <div className="space-y-2">
               <Label htmlFor="careTips">Care Instructions</Label>
-              <Textarea 
-                id="careTips"
-                value={careTips} 
-                onChange={(e) => setCareTips(e.target.value)} 
-                className={careTips.length > LIMITS.careTips ? 'border-[hsl(var(--destructive))]' : ''}
-                rows={3}
+              <RichTextEditor
+                value={careTips}
+                onChange={setCareTips}
                 placeholder="Light, water, temperature, and soil requirements..."
+                maxLength={LIMITS.careTips}
+                rows={3}
+                className={careTips.length > LIMITS.careTips ? 'border-[hsl(var(--destructive))]' : ''}
               />
               <CharacterCounter 
-                current={careTips.length} 
+                current={careTips.replace(/<[^>]*>/g, '').length} 
                 max={LIMITS.careTips}
                 fieldName="care instructions"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="plantPartsUsed">Plant Part/s Used</Label>
+              <RichTextEditor
+                value={plantPartsUsed}
+                onChange={setPlantPartsUsed}
+                placeholder="e.g., ROOTS, BARK, FRUIT, FLOWER, LEAVES, STEMS..."
+                maxLength={LIMITS.plantPartsUsed}
+                rows={2}
+                className={plantPartsUsed.length > LIMITS.plantPartsUsed ? 'border-[hsl(var(--destructive))]' : ''}
+              />
+              <CharacterCounter 
+                current={plantPartsUsed.replace(/<[^>]*>/g, '').length} 
+                max={LIMITS.plantPartsUsed}
+                fieldName="plant parts used"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="uses">Uses</Label>
+              <RichTextEditor
+                value={uses}
+                onChange={setUses}
+                placeholder="e.g., ANTHELMINTIC, JAUNDICE, CONSTIPATION, VAGINAL WASH, CHOREA, DIABETES, ANTI-MICROBIAL..."
+                maxLength={LIMITS.uses}
+                rows={3}
+                className={uses.length > LIMITS.uses ? 'border-[hsl(var(--destructive))]' : ''}
+              />
+              <CharacterCounter 
+                current={uses.replace(/<[^>]*>/g, '').length} 
+                max={LIMITS.uses}
+                fieldName="uses"
               />
             </div>
 
@@ -509,16 +617,16 @@ export default function AdminCreatePage() {
 
             <div className="space-y-2">
               <Label htmlFor="inventoryNotes">Inventory Notes</Label>
-              <Textarea 
-                id="inventoryNotes"
-                value={inventoryNotes} 
-                onChange={(e) => setInventoryNotes(e.target.value)} 
-                className={inventoryNotes.length > LIMITS.inventoryNotes ? 'border-[hsl(var(--destructive))]' : ''}
-                rows={3}
+              <RichTextEditor
+                value={inventoryNotes}
+                onChange={setInventoryNotes}
                 placeholder="Additional notes about this inventory item..."
+                maxLength={LIMITS.inventoryNotes}
+                rows={3}
+                className={inventoryNotes.length > LIMITS.inventoryNotes ? 'border-[hsl(var(--destructive))]' : ''}
               />
               <CharacterCounter 
-                current={inventoryNotes.length} 
+                current={inventoryNotes.replace(/<[^>]*>/g, '').length} 
                 max={LIMITS.inventoryNotes}
                 fieldName="inventory notes"
               />

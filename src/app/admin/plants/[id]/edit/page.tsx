@@ -7,12 +7,11 @@ import { isAdmin } from "../../../../../lib/auth";
 import Button from "../../../../../components/ui/button";
 import { Input } from "../../../../../components/ui/input";
 import { Label } from "../../../../../components/ui/label";
-import { Textarea } from "../../../../../components/ui/textarea";
 import { Switch } from "../../../../../components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../../../components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../../../components/ui/card";
 import ImageUpload from "../../../../../components/ImageUpload";
 import CharacterCounter from "../../../../../components/CharacterCounter";
+import RichTextEditor from "../../../../../components/RichTextEditor";
 import { Package, Leaf, ArrowLeft, AlertCircle } from "lucide-react";
 
 // Define Category type
@@ -61,10 +60,15 @@ export default function EditPlant() {
   const [description, setDescription] = useState("");
   const [habitat, setHabitat] = useState("");
   const [careTips, setCareTips] = useState("");
-  const [categoryId, setCategoryId] = useState<string>("");
+  const [categoryIds, setCategoryIds] = useState<string[]>([]); // Changed to array
   const [categories, setCategories] = useState<Category[]>([]);
   const [isFeatured, setIsFeatured] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+  // Botanical classification and usage
+  const [family, setFamily] = useState("");
+  const [plantPartsUsed, setPlantPartsUsed] = useState("");
+  const [uses, setUses] = useState("");
 
   // Inventory fields
   const [sku, setSku] = useState("");
@@ -86,13 +90,17 @@ export default function EditPlant() {
     habitat: 2000,
     careTips: 3000,
     inventoryNotes: 1000,
+    plantPartsUsed: 500,
+    uses: 2000,
   };
 
   const hasOverLimitFields = 
-    description.length > LIMITS.description ||
-    habitat.length > LIMITS.habitat ||
-    careTips.length > LIMITS.careTips ||
-    inventoryNotes.length > LIMITS.inventoryNotes;
+    description.replace(/<[^>]*>/g, '').length > LIMITS.description ||
+    habitat.replace(/<[^>]*>/g, '').length > LIMITS.habitat ||
+    careTips.replace(/<[^>]*>/g, '').length > LIMITS.careTips ||
+    inventoryNotes.replace(/<[^>]*>/g, '').length > LIMITS.inventoryNotes ||
+    plantPartsUsed.replace(/<[^>]*>/g, '').length > LIMITS.plantPartsUsed ||
+    uses.replace(/<[^>]*>/g, '').length > LIMITS.uses;
 
   // Auth check
   useEffect(() => {
@@ -165,9 +173,26 @@ export default function EditPlant() {
         setDescription(plant.description || "");
         setHabitat(plant.habitat || "");
         setCareTips(plant.care_instructions || "");
-        setCategoryId(plant.category_id || "");
         setIsFeatured(plant.is_featured || false);
         setImageUrl(plant.image_url || null);
+        
+        // Load botanical classification and usage
+        setFamily((plant as any).family || "");
+        setPlantPartsUsed((plant as any).plant_parts_used || "");
+        setUses((plant as any).uses || "");
+        
+        // Load categories from junction table
+        const { data: plantCategories } = await supabase
+          .from("plant_categories")
+          .select("category_id")
+          .eq("plant_id", plantId);
+        
+        if (plantCategories && plantCategories.length > 0) {
+          setCategoryIds(plantCategories.map(pc => pc.category_id));
+        } else if (plant.category_id) {
+          // Fallback to old category_id if no junction table entries
+          setCategoryIds([plant.category_id]);
+        }
         
         // Load inventory fields
         setSku(plant.sku || "");
@@ -208,9 +233,13 @@ export default function EditPlant() {
         description: description || null,
         habitat: habitat || null,
         care_instructions: careTips || null,
-        category_id: categoryId || null,
+        category_id: categoryIds.length > 0 ? categoryIds[0] : null, // Keep for backward compatibility
         is_featured: isFeatured,
         image_url: imageUrl,
+        // Botanical classification and usage
+        family: family || null,
+        plant_parts_used: plantPartsUsed || null,
+        uses: uses || null,
         // Inventory fields
         sku: sku || null,
         quantity: quantity || 0,
@@ -238,6 +267,30 @@ export default function EditPlant() {
         console.error("❌ Database error:", error);
         setStatus(`Error: ${error.message}`);
         return;
+      }
+
+      // Update categories in junction table
+      // First, delete existing categories
+      await supabase
+        .from("plant_categories")
+        .delete()
+        .eq("plant_id", plantId);
+      
+      // Then insert new categories
+      if (categoryIds.length > 0) {
+        const categoryInserts = categoryIds.map(catId => ({
+          plant_id: plantId,
+          category_id: catId
+        }));
+        
+        const { error: catError } = await supabase
+          .from("plant_categories")
+          .insert(categoryInserts);
+        
+        if (catError) {
+          console.error("Error updating categories:", catError);
+          // Don't fail the whole operation if categories fail
+        }
       }
 
       console.log("✅ Plant updated successfully:", data);
@@ -345,33 +398,70 @@ export default function EditPlant() {
                   placeholder="e.g., Rosa rubiginosa"
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="family">Family</Label>
+                <Input 
+                  id="family"
+                  value={family} 
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFamily(e.target.value)}
+                  placeholder="e.g., MYRTACEAE, ROSACEAE" 
+                  maxLength={200}
+                />
+                <p className="text-xs text-[hsl(var(--muted-foreground))]">Botanical family classification</p>
+              </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
-              <Select value={categoryId} onValueChange={setCategoryId}>
-                <SelectTrigger id="category">
-                  <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map(cat => (
-                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="categories">Categories (Multiple Selection)</Label>
+              <div className="border border-[hsl(var(--input))] rounded-lg p-4 space-y-2 max-h-60 overflow-y-auto bg-[hsl(var(--background))]">
+                {categories.length === 0 ? (
+                  <p className="text-sm text-[hsl(var(--muted-foreground))]">No categories available</p>
+                ) : (
+                  categories.map((cat) => (
+                    <div key={cat.id} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={`category-${cat.id}`}
+                        checked={categoryIds.includes(cat.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setCategoryIds([...categoryIds, cat.id]);
+                          } else {
+                            setCategoryIds(categoryIds.filter(id => id !== cat.id));
+                          }
+                        }}
+                        className="w-4 h-4 rounded border-[hsl(var(--input))] text-[hsl(var(--primary))] focus:ring-2 focus:ring-[hsl(var(--ring))]"
+                      />
+                      <label 
+                        htmlFor={`category-${cat.id}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        {cat.name}
+                      </label>
+                    </div>
+                  ))
+                )}
+              </div>
+              {categoryIds.length > 0 && (
+                <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                  {categoryIds.length} {categoryIds.length === 1 ? 'category' : 'categories'} selected
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
-              <Textarea 
-                id="description"
-                value={description} 
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)} 
+              <RichTextEditor
+                value={description}
+                onChange={setDescription}
                 placeholder="Describe the plant's appearance, characteristics, and uses..."
+                maxLength={LIMITS.description}
                 rows={4}
+                className={description.replace(/<[^>]*>/g, '').length > LIMITS.description ? 'border-[hsl(var(--destructive))]' : ''}
               />
               <CharacterCounter 
-                current={description.length} 
+                current={description.replace(/<[^>]*>/g, '').length} 
                 max={LIMITS.description}
                 fieldName="description"
               />
@@ -379,15 +469,16 @@ export default function EditPlant() {
 
             <div className="space-y-2">
               <Label htmlFor="habitat">Habitat</Label>
-              <Textarea 
-                id="habitat"
-                value={habitat} 
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setHabitat(e.target.value)} 
+              <RichTextEditor
+                value={habitat}
+                onChange={setHabitat}
                 placeholder="Where does this plant naturally grow?"
+                maxLength={LIMITS.habitat}
                 rows={3}
+                className={habitat.replace(/<[^>]*>/g, '').length > LIMITS.habitat ? 'border-[hsl(var(--destructive))]' : ''}
               />
               <CharacterCounter 
-                current={habitat.length} 
+                current={habitat.replace(/<[^>]*>/g, '').length} 
                 max={LIMITS.habitat}
                 fieldName="habitat"
               />
@@ -395,17 +486,52 @@ export default function EditPlant() {
 
             <div className="space-y-2">
               <Label htmlFor="careTips">Care Instructions</Label>
-              <Textarea 
-                id="careTips"
-                value={careTips} 
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setCareTips(e.target.value)} 
+              <RichTextEditor
+                value={careTips}
+                onChange={setCareTips}
                 placeholder="Light, water, temperature, and soil requirements..."
+                maxLength={LIMITS.careTips}
                 rows={3}
+                className={careTips.replace(/<[^>]*>/g, '').length > LIMITS.careTips ? 'border-[hsl(var(--destructive))]' : ''}
               />
               <CharacterCounter 
-                current={careTips.length} 
+                current={careTips.replace(/<[^>]*>/g, '').length} 
                 max={LIMITS.careTips}
                 fieldName="care instructions"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="plantPartsUsed">Plant Part/s Used</Label>
+              <RichTextEditor
+                value={plantPartsUsed}
+                onChange={setPlantPartsUsed}
+                placeholder="e.g., ROOTS, BARK, FRUIT, FLOWER, LEAVES, STEMS..."
+                maxLength={LIMITS.plantPartsUsed}
+                rows={2}
+                className={plantPartsUsed.replace(/<[^>]*>/g, '').length > LIMITS.plantPartsUsed ? 'border-[hsl(var(--destructive))]' : ''}
+              />
+              <CharacterCounter 
+                current={plantPartsUsed.replace(/<[^>]*>/g, '').length} 
+                max={LIMITS.plantPartsUsed}
+                fieldName="plant parts used"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="uses">Uses</Label>
+              <RichTextEditor
+                value={uses}
+                onChange={setUses}
+                placeholder="e.g., ANTHELMINTIC, JAUNDICE, CONSTIPATION, VAGINAL WASH, CHOREA, DIABETES, ANTI-MICROBIAL..."
+                maxLength={LIMITS.uses}
+                rows={3}
+                className={uses.replace(/<[^>]*>/g, '').length > LIMITS.uses ? 'border-[hsl(var(--destructive))]' : ''}
+              />
+              <CharacterCounter 
+                current={uses.replace(/<[^>]*>/g, '').length} 
+                max={LIMITS.uses}
+                fieldName="uses"
               />
             </div>
 
@@ -571,15 +697,16 @@ export default function EditPlant() {
 
             <div className="space-y-2">
               <Label htmlFor="inventoryNotes">Inventory Notes</Label>
-              <Textarea 
-                id="inventoryNotes"
-                value={inventoryNotes} 
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInventoryNotes(e.target.value)} 
+              <RichTextEditor
+                value={inventoryNotes}
+                onChange={setInventoryNotes}
                 placeholder="Additional notes about inventory, condition, etc..."
+                maxLength={LIMITS.inventoryNotes}
                 rows={3}
+                className={inventoryNotes.replace(/<[^>]*>/g, '').length > LIMITS.inventoryNotes ? 'border-[hsl(var(--destructive))]' : ''}
               />
               <CharacterCounter 
-                current={inventoryNotes.length} 
+                current={inventoryNotes.replace(/<[^>]*>/g, '').length} 
                 max={LIMITS.inventoryNotes}
                 fieldName="inventory notes"
               />
