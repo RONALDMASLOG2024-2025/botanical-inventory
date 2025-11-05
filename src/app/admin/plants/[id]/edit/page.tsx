@@ -337,9 +337,9 @@ export default function EditPlant() {
   const stockStatus = getStockStatus();
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto">
+    <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <Link 
             href="/admin/dashboard"
@@ -348,7 +348,7 @@ export default function EditPlant() {
             <ArrowLeft className="w-4 h-4" />
             Back to Dashboard
           </Link>
-          <h1 className="text-3xl font-bold text-[hsl(var(--foreground))]">Edit Plant</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-[hsl(var(--foreground))]">Edit Plant</h1>
           <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Update plant information and inventory</p>
         </div>
       </div>
@@ -728,11 +728,11 @@ export default function EditPlant() {
         )}
 
         {/* Submit Actions */}
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
           <Button 
             type="submit" 
             disabled={saving || hasOverLimitFields || !commonName.trim()}
-            className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white border-0 shadow-lg shadow-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white border-0 shadow-lg shadow-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
           >
             {saving ? "Saving Changes..." : "Save Changes"}
           </Button>
@@ -741,6 +741,7 @@ export default function EditPlant() {
             type="button"
             variant="outline"
             onClick={() => router.push("/admin/dashboard")}
+            className="w-full sm:w-auto"
           >
             Cancel
           </Button>

@@ -206,27 +206,28 @@ export default function AdminDashboard() {
   if (!allowed) return null;
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto">
+    <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-[hsl(var(--foreground))]">Dashboard</h1>
           <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Manage your botanical inventory</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
           <Button
             onClick={loadPlants}
             variant="outline"
             size="sm"
-            className="gap-2"
+            className="gap-2 flex-1 sm:flex-none"
           >
             <RefreshCw className="w-4 h-4" />
-            Refresh
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
-          <Link href="/admin/create">
-            <Button className="gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white border-0 shadow-lg shadow-emerald-500/30">
+          <Link href="/admin/create" className="flex-1 sm:flex-none">
+            <Button className="gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white border-0 shadow-lg shadow-emerald-500/30 w-full">
               <Plus className="w-4 h-4" />
-              Create Plant
+              <span className="hidden sm:inline">Create Plant</span>
+              <span className="sm:hidden">Create</span>
             </Button>
           </Link>
         </div>
@@ -424,32 +425,33 @@ export default function AdminDashboard() {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-[300px]">
-                      <div className="flex items-center gap-2">
-                        <Leaf className="w-4 h-4" />
-                        Plant Information
-                      </div>
-                    </TableHead>
-                    <TableHead className="hidden md:table-cell">
-                      <div className="flex items-center gap-2">
-                        SKU
-                      </div>
-                    </TableHead>
-                    <TableHead className="text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <Package className="w-4 h-4" />
-                        Stock
-                      </div>
-                    </TableHead>
-                    <TableHead className="hidden lg:table-cell">Status</TableHead>
-                    <TableHead className="hidden xl:table-cell">Location</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
+            <div className="overflow-x-auto -mx-6 px-6 md:mx-0 md:px-0">
+              <div className="inline-block min-w-full align-middle">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="w-[280px] min-w-[280px]">
+                        <div className="flex items-center gap-2">
+                          <Leaf className="w-4 h-4" />
+                          Plant Information
+                        </div>
+                      </TableHead>
+                      <TableHead className="hidden md:table-cell min-w-[100px]">
+                        <div className="flex items-center gap-2">
+                          SKU
+                        </div>
+                      </TableHead>
+                      <TableHead className="text-center min-w-[80px]">
+                        <div className="flex items-center justify-center gap-2">
+                          <Package className="w-4 h-4" />
+                          Stock
+                        </div>
+                      </TableHead>
+                      <TableHead className="hidden lg:table-cell min-w-[120px]">Status</TableHead>
+                      <TableHead className="hidden xl:table-cell min-w-[150px]">Location</TableHead>
+                      <TableHead className="text-right min-w-[100px]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
                 <TableBody>
                   {filteredPlants.map((p) => (
                     <TableRow key={p.id}>
@@ -581,6 +583,7 @@ export default function AdminDashboard() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             </div>
           )}
         </CardContent>

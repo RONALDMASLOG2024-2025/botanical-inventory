@@ -14,7 +14,7 @@ export default function RichTextEditor({
   value,
   onChange,
   placeholder = "Enter text...",
-  maxLength,
+  maxLength: _maxLength,
   rows = 4,
   className = "",
 }: RichTextEditorProps) {
@@ -40,14 +40,7 @@ export default function RichTextEditor({
       isUpdatingRef.current = true;
       
       const html = editorRef.current.innerHTML;
-      // Check max length (count text only, not HTML tags)
-      const textContent = editorRef.current.textContent || "";
-      
-      if (maxLength && textContent.length > maxLength) {
-        isUpdatingRef.current = false;
-        return;
-      }
-      
+      // Always allow the change - let the parent component handle validation
       onChange(html);
       
       // Reset the flag after a short delay

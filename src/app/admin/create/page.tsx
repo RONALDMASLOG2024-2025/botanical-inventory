@@ -66,12 +66,12 @@ export default function AdminCreatePage() {
   };
 
   const hasOverLimitFields = 
-    description.length > LIMITS.description ||
-    habitat.length > LIMITS.habitat ||
-    careTips.length > LIMITS.careTips ||
-    inventoryNotes.length > LIMITS.inventoryNotes ||
-    plantPartsUsed.length > LIMITS.plantPartsUsed ||
-    uses.length > LIMITS.uses;
+    description.replace(/<[^>]*>/g, '').length > LIMITS.description ||
+    habitat.replace(/<[^>]*>/g, '').length > LIMITS.habitat ||
+    careTips.replace(/<[^>]*>/g, '').length > LIMITS.careTips ||
+    inventoryNotes.replace(/<[^>]*>/g, '').length > LIMITS.inventoryNotes ||
+    plantPartsUsed.replace(/<[^>]*>/g, '').length > LIMITS.plantPartsUsed ||
+    uses.replace(/<[^>]*>/g, '').length > LIMITS.uses;
 
   // Auth check
   useEffect(() => {
@@ -125,23 +125,30 @@ export default function AdminCreatePage() {
     // Validate text lengths
     const validationErrors: string[] = [];
     
-    if (description.length > LIMITS.description) {
-      validationErrors.push(`Description is ${description.length - LIMITS.description} characters too long`);
+    const descriptionTextLength = description.replace(/<[^>]*>/g, '').length;
+    const habitatTextLength = habitat.replace(/<[^>]*>/g, '').length;
+    const careTipsTextLength = careTips.replace(/<[^>]*>/g, '').length;
+    const inventoryNotesTextLength = inventoryNotes.replace(/<[^>]*>/g, '').length;
+    const plantPartsUsedTextLength = plantPartsUsed.replace(/<[^>]*>/g, '').length;
+    const usesTextLength = uses.replace(/<[^>]*>/g, '').length;
+    
+    if (descriptionTextLength > LIMITS.description) {
+      validationErrors.push(`Description is ${descriptionTextLength - LIMITS.description} characters too long`);
     }
-    if (habitat.length > LIMITS.habitat) {
-      validationErrors.push(`Habitat is ${habitat.length - LIMITS.habitat} characters too long`);
+    if (habitatTextLength > LIMITS.habitat) {
+      validationErrors.push(`Habitat is ${habitatTextLength - LIMITS.habitat} characters too long`);
     }
-    if (careTips.length > LIMITS.careTips) {
-      validationErrors.push(`Care instructions are ${careTips.length - LIMITS.careTips} characters too long`);
+    if (careTipsTextLength > LIMITS.careTips) {
+      validationErrors.push(`Care instructions are ${careTipsTextLength - LIMITS.careTips} characters too long`);
     }
-    if (inventoryNotes.length > LIMITS.inventoryNotes) {
-      validationErrors.push(`Inventory notes are ${inventoryNotes.length - LIMITS.inventoryNotes} characters too long`);
+    if (inventoryNotesTextLength > LIMITS.inventoryNotes) {
+      validationErrors.push(`Inventory notes are ${inventoryNotesTextLength - LIMITS.inventoryNotes} characters too long`);
     }
-    if (plantPartsUsed.length > LIMITS.plantPartsUsed) {
-      validationErrors.push(`Plant parts used is ${plantPartsUsed.length - LIMITS.plantPartsUsed} characters too long`);
+    if (plantPartsUsedTextLength > LIMITS.plantPartsUsed) {
+      validationErrors.push(`Plant parts used is ${plantPartsUsedTextLength - LIMITS.plantPartsUsed} characters too long`);
     }
-    if (uses.length > LIMITS.uses) {
-      validationErrors.push(`Uses is ${uses.length - LIMITS.uses} characters too long`);
+    if (usesTextLength > LIMITS.uses) {
+      validationErrors.push(`Uses is ${usesTextLength - LIMITS.uses} characters too long`);
     }
     
     if (validationErrors.length > 0) {
@@ -182,6 +189,15 @@ export default function AdminCreatePage() {
         inventory_notes: inventoryNotes || null,
       };
 
+      // Debug: Log character lengths with HTML
+      console.log("📊 Field lengths (including HTML):");
+      console.log("  description:", description?.length || 0, "chars");
+      console.log("  habitat:", habitat?.length || 0, "chars");
+      console.log("  care_instructions:", careTips?.length || 0, "chars (DB limit: 4500)");
+      console.log("  plant_parts_used:", plantPartsUsed?.length || 0, "chars");
+      console.log("  uses:", uses?.length || 0, "chars");
+      console.log("  inventory_notes:", inventoryNotes?.length || 0, "chars");
+
       const { data: newPlant, error } = await supabase
         .from("plants")
         .insert([plantData])
@@ -196,6 +212,17 @@ export default function AdminCreatePage() {
           userMessage = "A plant with this name already exists.";
         } else if (error.code === '42501') {
           userMessage = "Permission denied. Please check Row Level Security policies.";
+        } else if (error.message?.includes('chk_') && error.message?.includes('length')) {
+          // Extract field name from constraint error
+          const match = error.message.match(/chk_(\w+)_length/);
+          const fieldName = match ? match[1].replace(/_/g, ' ') : 'field';
+          const actualLength = error.message.includes('care_instructions') ? careTips?.length : 
+                               error.message.includes('description') ? description?.length :
+                               error.message.includes('habitat') ? habitat?.length :
+                               error.message.includes('plant_parts_used') ? plantPartsUsed?.length :
+                               error.message.includes('uses') ? uses?.length :
+                               error.message.includes('inventory_notes') ? inventoryNotes?.length : 0;
+          userMessage = `❌ Database constraint error: ${fieldName} is too long (${actualLength} characters including HTML tags). The database limit may not have been updated. Please run the SQL migration in docs/migrations/010_update_length_constraints_for_html.sql`;
         }
         throw new Error(userMessage);
       }
@@ -270,10 +297,10 @@ export default function AdminCreatePage() {
   const stockStatus = getStockStatus();
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto">
+    <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* Page Header */}
       <div>
-        <h1 className="text-3xl font-bold text-[hsl(var(--foreground))]">Create New Plant</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-[hsl(var(--foreground))]">Create New Plant</h1>
         <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Add a new plant to the botanical inventory</p>
       </div>
 
@@ -369,7 +396,7 @@ export default function AdminCreatePage() {
                 placeholder="Describe the plant's appearance, characteristics, and uses..."
                 maxLength={LIMITS.description}
                 rows={4}
-                className={description.length > LIMITS.description ? 'border-[hsl(var(--destructive))]' : ''}
+                className={description.replace(/<[^>]*>/g, '').length > LIMITS.description ? 'border-[hsl(var(--destructive))]' : ''}
               />
               <CharacterCounter 
                 current={description.replace(/<[^>]*>/g, '').length} 
@@ -386,7 +413,7 @@ export default function AdminCreatePage() {
                 placeholder="Where does this plant naturally grow?"
                 maxLength={LIMITS.habitat}
                 rows={3}
-                className={habitat.length > LIMITS.habitat ? 'border-[hsl(var(--destructive))]' : ''}
+                className={habitat.replace(/<[^>]*>/g, '').length > LIMITS.habitat ? 'border-[hsl(var(--destructive))]' : ''}
               />
               <CharacterCounter 
                 current={habitat.replace(/<[^>]*>/g, '').length} 
@@ -403,7 +430,7 @@ export default function AdminCreatePage() {
                 placeholder="Light, water, temperature, and soil requirements..."
                 maxLength={LIMITS.careTips}
                 rows={3}
-                className={careTips.length > LIMITS.careTips ? 'border-[hsl(var(--destructive))]' : ''}
+                className={careTips.replace(/<[^>]*>/g, '').length > LIMITS.careTips ? 'border-[hsl(var(--destructive))]' : ''}
               />
               <CharacterCounter 
                 current={careTips.replace(/<[^>]*>/g, '').length} 
@@ -420,7 +447,7 @@ export default function AdminCreatePage() {
                 placeholder="e.g., ROOTS, BARK, FRUIT, FLOWER, LEAVES, STEMS..."
                 maxLength={LIMITS.plantPartsUsed}
                 rows={2}
-                className={plantPartsUsed.length > LIMITS.plantPartsUsed ? 'border-[hsl(var(--destructive))]' : ''}
+                className={plantPartsUsed.replace(/<[^>]*>/g, '').length > LIMITS.plantPartsUsed ? 'border-[hsl(var(--destructive))]' : ''}
               />
               <CharacterCounter 
                 current={plantPartsUsed.replace(/<[^>]*>/g, '').length} 
@@ -437,7 +464,7 @@ export default function AdminCreatePage() {
                 placeholder="e.g., ANTHELMINTIC, JAUNDICE, CONSTIPATION, VAGINAL WASH, CHOREA, DIABETES, ANTI-MICROBIAL..."
                 maxLength={LIMITS.uses}
                 rows={3}
-                className={uses.length > LIMITS.uses ? 'border-[hsl(var(--destructive))]' : ''}
+                className={uses.replace(/<[^>]*>/g, '').length > LIMITS.uses ? 'border-[hsl(var(--destructive))]' : ''}
               />
               <CharacterCounter 
                 current={uses.replace(/<[^>]*>/g, '').length} 
@@ -623,7 +650,7 @@ export default function AdminCreatePage() {
                 placeholder="Additional notes about this inventory item..."
                 maxLength={LIMITS.inventoryNotes}
                 rows={3}
-                className={inventoryNotes.length > LIMITS.inventoryNotes ? 'border-[hsl(var(--destructive))]' : ''}
+                className={inventoryNotes.replace(/<[^>]*>/g, '').length > LIMITS.inventoryNotes ? 'border-[hsl(var(--destructive))]' : ''}
               />
               <CharacterCounter 
                 current={inventoryNotes.replace(/<[^>]*>/g, '').length} 
@@ -635,11 +662,11 @@ export default function AdminCreatePage() {
         </Card>
 
         {/* Submit Actions */}
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
           <Button 
             type="submit" 
             disabled={loading || imageUploading || hasOverLimitFields}
-            className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white border-0 shadow-lg shadow-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white border-0 shadow-lg shadow-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
           >
             {loading ? "Creating..." : imageUploading ? "Uploading image..." : "Create Plant"}
           </Button>
@@ -648,6 +675,7 @@ export default function AdminCreatePage() {
             type="button"
             onClick={() => router.push("/admin/dashboard")}
             variant="outline"
+            className="w-full sm:w-auto"
           >
             Cancel
           </Button>
