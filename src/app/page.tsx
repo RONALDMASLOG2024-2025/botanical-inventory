@@ -66,7 +66,7 @@ export default function Home() {
         </div>
         
         {/* Background grid - on top of bubbles */}
-        <div className="absolute inset-0 z-10 h-full w-full bg-[hsl(var(--background))] bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:14px_24px] opacity-50 dark:opacity-30"></div>
+╤╤        <div className="absolute inset-0 z-10 h-full w-full bg-[hsl(var(--background))] bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:14px_24px] opacity-50 dark:opacity-30"></div>
         
         <div className="relative z-20 container mx-auto flex flex-col items-center gap-8 px-4 py-24 sm:px-6 sm:py-32 lg:px-8 lg:py-40">
           {/* Badge */}
@@ -302,7 +302,72 @@ export default function Home() {
             </Button>
           </Link>
         </div>
-            </section>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t bg-[hsl(var(--background))]">
+        <div className="container mx-auto px-4 py-12 sm:px-6 lg:px-8">
+          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+            {/* Project Info */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Leaf className="h-6 w-6 text-[hsl(var(--primary))]" />
+                <h3 className="text-lg font-semibold">Botanical Inventory</h3>
+              </div>
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                A comprehensive botanical garden inventory management system developed as an academic project.
+              </p>
+              <p className="text-sm font-medium text-[hsl(var(--foreground))]">
+                BSCS-3A • {new Date().getFullYear()}
+              </p>
+            </div>
+
+            {/* Developer */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Developed By</h3>
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-[hsl(var(--primary))]">
+                  Maslog, Ronald
+                </p>
+                <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                  Lead Developer & Project Manager
+                </p>
+              </div>
+            </div>
+
+            {/* Contributors */}
+            <div className="space-y-4 md:col-span-2 lg:col-span-1">
+              <h3 className="text-lg font-semibold">Contributors</h3>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-[hsl(var(--muted-foreground))]">
+                <p>Aung, Pyae Sone Chantar</p>
+                <p>Castada, Daniell Marie</p>
+                <p>Coronado, Earl Cedric</p>
+                <p>Cuadra, Francis Neil</p>
+                <p>Diapana, Geoffrey</p>
+                <p>Estano, John Paul</p>
+                <p>Golosino, Nash</p>
+                <p>Monterola, John Lloyd</p>
+                <p>Morales, Maria Nicole</p>
+                <p>Paclibar, Frederick Joshua</p>
+                <p>Regalado, Mika Ysabelle</p>
+                <p>Sanguenza, Carl Stephen</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Bar */}
+          <div className="mt-12 border-t pt-8">
+            <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+              <p className="text-center text-sm text-[hsl(var(--muted-foreground))]">
+                © {new Date().getFullYear()} Botanical Inventory System. Built with Next.js & Supabase.
+              </p>
+              <p className="text-center text-xs text-[hsl(var(--muted-foreground))]">
+                Academic Project • Bachelor of Science in Computer Science
+              </p>
+            </div>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
